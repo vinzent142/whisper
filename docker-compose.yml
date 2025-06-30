@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  whisper-transcriber:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: whisper-transcriber:latest
+    container_name: whisper-transcription-service
+    volumes:
+      # Mount input directory (read-only)
+      - ./input:/input:ro
+      # Mount output directory (read-write)
+      - ./output:/output:rw
+    environment:
+      # Python environment
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/src
+      # Model cache directories
+      - TRANSFORMERS_CACHE=/root/.cache/title-generator
+      - WHISPER_CACHE=/root/.cache/whisper
+      # Logging level
+      - LOG_LEVEL=INFO
+    # Resource limits for laptop testing
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+        reservations:
+          memory: 4G
+          cpus: '2.0'
+    # Restart policy
+    restart: "no"
+    # Remove container after completion
+    remove: true
+    # Network mode
+    network_mode: none
+    
+  # Development service with smaller model for testing
+  whisper-transcriber-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: whisper-transcriber:latest
+    container_name: whisper-transcription-dev
+    volumes:
+      - ./input:/input:ro
+      - ./output:/output:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/src
+      - TRANSFORMERS_CACHE=/root/.cache/title-generator
+      - WHISPER_CACHE=/root/.cache/whisper
+      - LOG_LEVEL=DEBUG
+      # Override model size for development
+      - WHISPER_MODEL_SIZE=base
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    restart: "no"
+    remove: true
+    network_mode: none
+    profiles:
+      - dev
+
+# Named volumes for persistent model storage (optional)
+volumes:
+  whisper_models:
+    driver: local
+  title_models:
+    driver: local
+
+# Networks (none needed for this use case)
+networks:
+  default:
+    driver: none
