@@ -72,20 +72,19 @@ class GermanTitleGenerator:
             )
             
             # Generate title
-            with self.tokenizer.as_target_tokenizer():
-                outputs = self.model.generate(
-                    inputs["input_ids"],
-                    attention_mask=inputs["attention_mask"],
-                    max_length=20,  # Token limit for title generation
-                    min_length=3,
-                    num_beams=4,
-                    length_penalty=1.0,
-                    early_stopping=True,
-                    do_sample=False,
-                    temperature=1.0,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id
-                )
+            outputs = self.model.generate(
+                inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_length=20,  # Token limit for title generation
+                min_length=3,
+                num_beams=4,
+                length_penalty=1.0,
+                early_stopping=True,
+                do_sample=False,
+                temperature=1.0,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id
+            )
             
             # Decode generated title
             generated_title = self.tokenizer.decode(outputs[0], skip_special_tokens=True)

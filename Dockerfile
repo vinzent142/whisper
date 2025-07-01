@@ -1,6 +1,18 @@
 # Multi-stage Docker build for Whisper transcription service
 # Stage 1: Model download and preparation
-FROM python:3.11-slim as model-downloader
+FROM python:3.11-slim AS model-downloader
+
+# Accept proxy arguments
+ARG http_proxy
+ARG https_proxy
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+
+# Set proxy environment variables if provided
+ENV http_proxy=${http_proxy}
+ENV https_proxy=${https_proxy}
+ENV HTTP_PROXY=${HTTP_PROXY}
+ENV HTTPS_PROXY=${HTTPS_PROXY}
 
 # Install system dependencies for model downloading
 RUN apt-get update && apt-get install -y \
@@ -27,6 +39,18 @@ RUN python -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; \
 # Stage 2: Production image
 FROM python:3.11-slim
 
+# Accept proxy arguments
+ARG http_proxy
+ARG https_proxy
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+
+# Set proxy environment variables if provided
+ENV http_proxy=${http_proxy}
+ENV https_proxy=${https_proxy}
+ENV HTTP_PROXY=${HTTP_PROXY}
+ENV HTTPS_PROXY=${HTTPS_PROXY}
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
@@ -51,7 +75,7 @@ RUN mkdir -p /input /output
 
 # Set environment variables
 ENV PYTHONPATH=/app/src
-ENV TRANSFORMERS_CACHE=/root/.cache/title-generator
+ENV HF_HOME=/root/.cache/title-generator
 ENV WHISPER_CACHE=/root/.cache/whisper
 
 # Make main script executable
