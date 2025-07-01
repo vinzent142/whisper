@@ -9,6 +9,7 @@ set -e  # Exit on any error
 IMAGE_NAME="whisper-transcription"
 IMAGE_TAG="latest"
 DOCKERFILE_PATH="."
+WHISPER_MODEL="large-v3"
 
 # Colors for output
 RED='\033[0;31m'
@@ -41,15 +42,16 @@ show_usage() {
     echo "Options:"
     echo "  -n, --name NAME        Docker image name (default: whisper-transcription)"
     echo "  -t, --tag TAG          Docker image tag (default: latest)"
+    echo "  -m, --model MODEL      Whisper model size: small, medium, large-v3, turbo (default: large-v3)"
     echo "  -p, --proxy PROXY      HTTP proxy URL (e.g., http://proxy.company.com:8080)"
     echo "  -s, --https-proxy PROXY HTTPS proxy URL"
     echo "  --no-cache             Build without using Docker cache"
     echo "  -h, --help             Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                                    # Basic build"
-    echo "  $0 -n my-whisper -t v1.0             # Custom name and tag"
-    echo "  $0 -p http://proxy:8080              # With HTTP proxy"
+    echo "  $0                                    # Basic build with large-v3 model"
+    echo "  $0 -m small -t small                 # Build with small model"
+    echo "  $0 -m turbo -n my-whisper -t turbo   # Build with turbo model and custom name"
     echo "  $0 -p http://proxy:8080 --no-cache   # With proxy and no cache"
 }
 
@@ -65,6 +67,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--tag)
             IMAGE_TAG="$2"
+            shift 2
+            ;;
+        -m|--model)
+            WHISPER_MODEL="$2"
             shift 2
             ;;
         -p|--proxy)
@@ -104,17 +110,26 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
+# Validate Whisper model
+VALID_MODELS=("small" "medium" "large-v3" "turbo")
+if [[ ! " ${VALID_MODELS[@]} " =~ " ${WHISPER_MODEL} " ]]; then
+    print_error "Invalid Whisper model: $WHISPER_MODEL"
+    print_error "Valid models are: ${VALID_MODELS[*]}"
+    exit 1
+fi
+
 # Check if Dockerfile exists
 if [[ ! -f "$DOCKERFILE_PATH/Dockerfile" ]]; then
     print_error "Dockerfile not found in $DOCKERFILE_PATH"
     exit 1
 fi
 
-# Build the Docker image
-FULL_IMAGE_NAME="$IMAGE_NAME:$IMAGE_TAG"
+# Build the Docker image with model in tag
+FULL_IMAGE_NAME="$IMAGE_NAME:${WHISPER_MODEL}_${IMAGE_TAG}"
 
 print_info "Starting Docker build..."
 print_info "Image name: $FULL_IMAGE_NAME"
+print_info "Whisper model: $WHISPER_MODEL"
 print_info "Dockerfile path: $DOCKERFILE_PATH"
 
 if [[ -n "$HTTP_PROXY" ]]; then
@@ -128,6 +143,9 @@ fi
 if [[ -n "$NO_CACHE" ]]; then
     print_info "Building without cache"
 fi
+
+# Add Whisper model build argument
+DOCKER_BUILD_ARGS="$DOCKER_BUILD_ARGS --build-arg WHISPER_MODEL=$WHISPER_MODEL"
 
 # Execute the build command
 BUILD_CMD="docker build $NO_CACHE $DOCKER_BUILD_ARGS -t $FULL_IMAGE_NAME $DOCKERFILE_PATH"

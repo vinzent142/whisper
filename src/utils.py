@@ -1,5 +1,8 @@
 import os
 import logging
+import torch
+import platform
+import psutil
 import soundfile as sf
 from pathlib import Path
 
@@ -121,3 +124,65 @@ def get_output_file_path() -> str:
         str: Path to the output file
     """
     return "/output/transcription.txt"
+
+def log_device_info():
+    """
+    Log detailed information about the device being used (CPU/GPU).
+    """
+    logger.info("=== DEVICE INFORMATION ===")
+    
+    # System information
+    logger.info(f"Platform: {platform.platform()}")
+    logger.info(f"Architecture: {platform.architecture()[0]}")
+    logger.info(f"Processor: {platform.processor()}")
+    
+    # CPU information
+    try:
+        cpu_count = psutil.cpu_count(logical=False)
+        cpu_count_logical = psutil.cpu_count(logical=True)
+        logger.info(f"CPU Cores: {cpu_count} physical, {cpu_count_logical} logical")
+        
+        # CPU frequency
+        cpu_freq = psutil.cpu_freq()
+        if cpu_freq:
+            logger.info(f"CPU Frequency: {cpu_freq.current:.2f} MHz (max: {cpu_freq.max:.2f} MHz)")
+    except Exception as e:
+        logger.warning(f"Could not get CPU info: {e}")
+    
+    # Memory information
+    try:
+        memory = psutil.virtual_memory()
+        logger.info(f"RAM: {memory.total / (1024**3):.2f} GB total, {memory.available / (1024**3):.2f} GB available")
+    except Exception as e:
+        logger.warning(f"Could not get memory info: {e}")
+    
+    # PyTorch and GPU information
+    logger.info(f"PyTorch version: {torch.__version__}")
+    logger.info(f"CUDA available: {torch.cuda.is_available()}")
+    
+    if torch.cuda.is_available():
+        logger.info(f"CUDA version: {torch.version.cuda}")
+        gpu_count = torch.cuda.device_count()
+        logger.info(f"GPU count: {gpu_count}")
+        
+        for i in range(gpu_count):
+            gpu_name = torch.cuda.get_device_name(i)
+            gpu_memory = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+            logger.info(f"GPU {i}: {gpu_name} ({gpu_memory:.2f} GB)")
+            
+        # Current GPU memory usage
+        try:
+            current_device = torch.cuda.current_device()
+            memory_allocated = torch.cuda.memory_allocated(current_device) / (1024**3)
+            memory_reserved = torch.cuda.memory_reserved(current_device) / (1024**3)
+            logger.info(f"Current GPU memory: {memory_allocated:.2f} GB allocated, {memory_reserved:.2f} GB reserved")
+        except Exception as e:
+            logger.warning(f"Could not get GPU memory info: {e}")
+    else:
+        logger.info("GPU: Not available - using CPU")
+    
+    # Determine device that will be used
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    logger.info(f"Whisper will use: {device.upper()}")
+    
+    logger.info("==========================")

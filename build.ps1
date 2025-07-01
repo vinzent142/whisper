@@ -4,6 +4,7 @@
 param(
     [string]$Name = "whisper-transcription",
     [string]$Tag = "latest",
+    [string]$Model = "large-v3",
     [string]$Proxy = "",
     [string]$HttpsProxy = "",
     [switch]$NoCache,
@@ -38,15 +39,16 @@ function Show-Usage {
     Write-Host "Options:"
     Write-Host "  -Name NAME             Docker image name (default: whisper-transcription)"
     Write-Host "  -Tag TAG               Docker image tag (default: latest)"
+    Write-Host "  -Model MODEL           Whisper model size: small, medium, large-v3, turbo (default: large-v3)"
     Write-Host "  -Proxy PROXY           HTTP proxy URL (e.g., http://proxy.company.com:8080)"
     Write-Host "  -HttpsProxy PROXY      HTTPS proxy URL"
     Write-Host "  -NoCache               Build without using Docker cache"
     Write-Host "  -Help                  Show this help message"
     Write-Host ""
     Write-Host "Examples:"
-    Write-Host "  .\build.ps1                                      # Basic build"
-    Write-Host "  .\build.ps1 -Name my-whisper -Tag v1.0          # Custom name and tag"
-    Write-Host "  .\build.ps1 -Proxy http://proxy:8080            # With HTTP proxy"
+    Write-Host "  .\build.ps1                                      # Basic build with large-v3 model"
+    Write-Host "  .\build.ps1 -Model small -Tag small             # Build with small model"
+    Write-Host "  .\build.ps1 -Model turbo -Name my-whisper       # Build with turbo model and custom name"
     Write-Host "  .\build.ps1 -Proxy http://proxy:8080 -NoCache   # With proxy and no cache"
 }
 
@@ -79,6 +81,14 @@ try {
     exit 1
 }
 
+# Validate Whisper model
+$validModels = @("small", "medium", "large-v3", "turbo")
+if ($validModels -notcontains $Model) {
+    Write-Error "Invalid Whisper model: $Model"
+    Write-Error "Valid models are: $($validModels -join ', ')"
+    exit 1
+}
+
 # Check if Dockerfile exists
 if (-not (Test-Path "Dockerfile")) {
     Write-Error "Dockerfile not found in current directory"
@@ -102,11 +112,15 @@ if ($NoCache) {
     $dockerBuildArgs += "--no-cache"
 }
 
-# Build the Docker image
-$fullImageName = "${Name}:${Tag}"
+# Add Whisper model build argument
+$dockerBuildArgs += "--build-arg", "WHISPER_MODEL=$Model"
+
+# Build the Docker image with model in tag
+$fullImageName = "${Name}:${Model}_${Tag}"
 
 Write-Info "Starting Docker build..."
 Write-Info "Image name: $fullImageName"
+Write-Info "Whisper model: $Model"
 Write-Info "Dockerfile path: ."
 
 if ($Proxy) {

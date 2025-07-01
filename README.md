@@ -6,6 +6,8 @@ A containerized German audio transcription service using OpenAI Whisper and Germ
 
 - **German Language Optimized**: Whisper configured specifically for German audio transcription
 - **Automatic Title Generation**: Uses `aiautomationlab/german-news-title-gen-mt5` for intelligent German titles (max 50 characters)
+- **Multiple Model Support**: Choose from small, medium, large-v3, or turbo models during build
+- **Device Detection**: Automatic logging of CPU/GPU information and hardware specifications
 - **Fully Offline**: All models pre-downloaded in Docker image, no internet connection required after build
 - **Service Desk Ready**: Output format designed for CA Service Desk API integration
 - **Robust Error Handling**: Clear exit codes for automation and monitoring
@@ -16,8 +18,15 @@ A containerized German audio transcription service using OpenAI Whisper and Germ
 ### 1. Build the Container
 
 ```bash
-# Build the Docker image (this will download all models)
-docker build -t whisper-transcriber .
+# Build the Docker image with default large-v3 model
+./build.sh
+
+# Or build with a specific model
+./build.sh -m small -t v1.0
+./build.sh -m turbo -t production
+
+# On Windows
+.\build.ps1 -Model small -Tag v1.0
 ```
 
 ### 2. Prepare Directories
@@ -33,11 +42,17 @@ cp your-recording.wav input/
 ### 3. Run Transcription
 
 ```bash
-# Run the transcription service
+# Run the transcription service (using default large-v3 model)
 docker run --rm \
   -v $(pwd)/input:/input:ro \
   -v $(pwd)/output:/output \
-  whisper-transcriber
+  whisper-transcription:large-v3_latest
+
+# Or use a specific model build
+docker run --rm \
+  -v $(pwd)/input:/input:ro \
+  -v $(pwd)/output:/output \
+  whisper-transcription:small_v1.0
 ```
 
 ### 4. Get Results
@@ -89,13 +104,48 @@ whisper-transcription/
 
 ### Model Selection
 
+Available Whisper models (specified during build):
+
 **For Laptop Testing:**
-- `base`: Fastest, lower accuracy (~39 MB)
 - `small`: Good balance (~244 MB)
 - `medium`: Better accuracy (~769 MB)
 
 **For Production Server (A16 GPU):**
-- `large-v3`: Best accuracy (~1550 MB) - Recommended
+- `large-v3`: Best accuracy (~1550 MB) - **Default**
+- `turbo`: Fast and accurate (~798 MB)
+
+### Build Options
+
+The build scripts support the following options:
+
+**Linux/macOS (build.sh):**
+```bash
+./build.sh [OPTIONS]
+  -n, --name NAME        Docker image name (default: whisper-transcription)
+  -t, --tag TAG          Docker image tag (default: latest)
+  -m, --model MODEL      Whisper model: small, medium, large-v3, turbo (default: large-v3)
+  -p, --proxy PROXY      HTTP proxy URL
+  -s, --https-proxy PROXY HTTPS proxy URL
+  --no-cache             Build without using Docker cache
+  -h, --help             Show help message
+```
+
+**Windows (build.ps1):**
+```powershell
+.\build.ps1 [OPTIONS]
+  -Name NAME             Docker image name (default: whisper-transcription)
+  -Tag TAG               Docker image tag (default: latest)
+  -Model MODEL           Whisper model: small, medium, large-v3, turbo (default: large-v3)
+  -Proxy PROXY           HTTP proxy URL
+  -HttpsProxy PROXY      HTTPS proxy URL
+  -NoCache               Build without using Docker cache
+  -Help                  Show help message
+```
+
+**Image Tagging:**
+Images are automatically tagged with the model name: `imagename:model_tag`
+- Example: `whisper-transcription:large-v3_latest`
+- Example: `whisper-transcription:small_v1.0`
 
 ## Usage Patterns
 

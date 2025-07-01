@@ -2,17 +2,19 @@
 # Stage 1: Model download and preparation
 FROM python:3.11-slim AS model-downloader
 
-# Accept proxy arguments
+# Accept build arguments
 ARG http_proxy
 ARG https_proxy
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
+ARG WHISPER_MODEL=large-v3
 
 # Set proxy environment variables if provided
 ENV http_proxy=${http_proxy}
 ENV https_proxy=${https_proxy}
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
+ENV WHISPER_MODEL=${WHISPER_MODEL}
 
 # Install system dependencies for model downloading
 RUN apt-get update && apt-get install -y \
@@ -29,7 +31,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 RUN mkdir -p /models/whisper /models/title-generator
 
 # Download Whisper model
-RUN python -c "import whisper; whisper.load_model('large-v3', download_root='/models/whisper')"
+RUN echo "Downloading Whisper model: $WHISPER_MODEL" && \
+    python -c "import whisper; import os; model_name=os.getenv('WHISPER_MODEL', 'large-v3'); print(f'Loading model: {model_name}'); whisper.load_model(model_name, download_root='/models/whisper'); print(f'Model {model_name} downloaded successfully')"
 
 # Download German title generation model
 RUN python -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; \
@@ -44,6 +47,7 @@ ARG http_proxy
 ARG https_proxy
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
+ARG WHISPER_MODEL=large-v3
 
 # Set proxy environment variables if provided
 ENV http_proxy=${http_proxy}
@@ -77,6 +81,7 @@ RUN mkdir -p /input /output
 ENV PYTHONPATH=/app/src
 ENV HF_HOME=/root/.cache/title-generator
 ENV WHISPER_CACHE=/root/.cache/whisper
+ENV WHISPER_MODEL=${WHISPER_MODEL}
 
 # Make main script executable
 RUN chmod +x src/main.py
@@ -92,3 +97,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 LABEL maintainer="Service Desk Team"
 LABEL description="Whisper transcription service for German audio files"
 LABEL version="1.0.0"
+LABEL whisper.model="${WHISPER_MODEL}"

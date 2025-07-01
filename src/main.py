@@ -14,7 +14,8 @@ from utils import (
     ensure_output_directory,
     write_transcription_output,
     get_input_file_path,
-    get_output_file_path
+    get_output_file_path,
+    log_device_info
 )
 
 # Configure logging
@@ -40,6 +41,9 @@ def main():
     """
     logger.info("Starting Whisper transcription service")
     
+    # Log device information
+    log_device_info()
+    
     try:
         # Step 1: Get input file path
         input_file = get_input_file_path()
@@ -60,7 +64,7 @@ def main():
         
         # Step 4: Initialize and load Whisper model
         logger.info("Initializing Whisper transcriber")
-        model_size = os.getenv("WHISPER_MODEL_SIZE", "large-v3")
+        model_size = os.getenv("WHISPER_MODEL", "large-v3")
         logger.info(f"Using Whisper model size: {model_size}")
         transcriber = WhisperTranscriber(model_size=model_size)
         
