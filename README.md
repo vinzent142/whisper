@@ -4,11 +4,14 @@ A containerized German audio transcription service using OpenAI Whisper and Germ
 
 ## Features
 
+- **Continuous Processing**: Monitors input directory and processes files automatically as they arrive
+- **Model Persistence**: Models stay loaded in memory for faster processing of subsequent files
 - **German Language Optimized**: Whisper configured specifically for German audio transcription
 - **Automatic Title Generation**: Uses `aiautomationlab/german-news-title-gen-mt5` for intelligent German titles (max 50 characters)
 - **Fully Offline**: All models pre-downloaded in Docker image, no internet connection required after build
 - **Service Desk Ready**: Output format designed for CA Service Desk API integration
-- **Robust Error Handling**: Clear exit codes for automation and monitoring
+- **Robust Error Handling**: Graceful shutdown and comprehensive error handling
+- **File Management**: Automatically moves processed files to output directory with matching names
 - **Scalable**: CPU optimized for laptop testing, GPU ready for production server
 
 ## Quick Start
@@ -25,25 +28,33 @@ docker build -t whisper-transcriber .
 ```bash
 # Create input and output directories
 mkdir -p input output
-
-# Place your WAV file in the input directory
-cp your-recording.wav input/
 ```
 
-### 3. Run Transcription
+### 3. Start Continuous Service
 
 ```bash
-# Run the transcription service
-docker run --rm \
-  -v $(pwd)/input:/input:ro \
-  -v $(pwd)/output:/output \
-  whisper-transcriber
+# Run the continuous transcription service
+docker-compose up whisper-transcriber
 ```
 
-### 4. Get Results
+### 4. Add Files for Processing
 
-The transcribed text with title will be available in `output/transcription.txt`:
+```bash
+# Copy WAV files to input directory while service is running
+cp your-recording.wav input/
+cp another-recording.wav input/
+```
 
+### 5. Get Results
+
+For each input file, you'll get both the original audio and transcription in the output directory:
+
+**Input:** `input/meeting-recording.wav`
+**Output:** 
+- `output/meeting-recording.wav` (original audio file)
+- `output/meeting-recording.txt` (transcription with title)
+
+**Example output file content:**
 ```
 Service Desk Problem mit Drucker
 
@@ -70,12 +81,16 @@ whisper-transcription/
 ├── docker-compose.yml         # Development and testing setup
 ├── requirements.txt          # Python dependencies
 ├── src/
-│   ├── main.py              # Main entry point
+│   ├── main.py              # Main entry point (continuous service)
+│   ├── main_single_file.py  # Legacy single-file processing mode
+│   ├── service_manager.py   # Continuous file monitoring service
+│   ├── model_manager.py     # Model persistence and management
+│   ├── file_processor.py    # Individual file processing logic
 │   ├── transcriber.py       # Whisper transcription logic
 │   ├── title_generator.py   # German title generation
 │   └── utils.py             # File handling utilities
 ├── input/                   # Mount point for WAV files
-├── output/                  # Mount point for TXT output
+├── output/                  # Mount point for processed files
 └── README.md               # This file
 ```
 
@@ -83,9 +98,14 @@ whisper-transcription/
 
 ### Environment Variables
 
+**Core Configuration:**
 - `WHISPER_MODEL_SIZE`: Whisper model size (default: `large-v3`)
 - `LOG_LEVEL`: Logging level (default: `INFO`)
 - `PYTHONUNBUFFERED`: Python output buffering (default: `1`)
+
+**Continuous Service Configuration:**
+- `WATCH_INTERVAL`: File monitoring interval in seconds (default: `1.0`)
+- `PRELOAD_MODELS`: Preload models on startup (default: `true`)
 
 ### Model Selection
 
@@ -97,37 +117,76 @@ whisper-transcription/
 **For Production Server (A16 GPU):**
 - `large-v3`: Best accuracy (~1550 MB) - Recommended
 
+## Continuous Processing Workflow
+
+The service operates in a continuous loop:
+
+1. **Startup**: Container starts and loads models into memory
+2. **Monitoring**: Watches `/input` directory for new `.wav` files
+3. **Detection**: When a new file is detected, it's added to the processing queue
+4. **Processing**: File is transcribed and title is generated using cached models
+5. **Output**: Creates `.txt` file with transcription and moves original `.wav` to `/output`
+6. **Repeat**: Continues monitoring for new files
+
+### File Processing Flow
+
+```
+input/recording.wav  →  [Processing]  →  output/recording.wav
+                                     →  output/recording.txt
+```
+
+### Performance Benefits
+
+- **First file**: ~2-5 minutes (includes model loading time)
+- **Subsequent files**: ~30 seconds - 2 minutes (models already loaded)
+- **Memory usage**: Models stay loaded, reducing processing time by 80-90%
+
 ## Usage Patterns
 
-### Single File Processing
+### Continuous Service (Recommended)
 
 ```bash
-# Standard usage
+# Start the continuous service
+docker-compose up whisper-transcriber
+
+# Add files while service is running
+cp recording1.wav input/
+cp recording2.wav input/
+# Files are processed automatically
+```
+
+### Manual Container Run
+
+```bash
+# Run continuous service manually
 docker run --rm \
-  -v /path/to/recording.wav:/input/audio.wav:ro \
-  -v /path/to/output:/output \
+  -v $(pwd)/input:/input:ro \
+  -v $(pwd)/output:/output \
   whisper-transcriber
 ```
 
-### Batch Processing Script
+### Legacy Single File Mode
 
 ```bash
-#!/bin/bash
-for wav_file in recordings/*.wav; do
-    filename=$(basename "$wav_file" .wav)
-    mkdir -p "output/$filename"
-    
-    docker run --rm \
-      -v "$wav_file:/input/audio.wav:ro" \
-      -v "$(pwd)/output/$filename:/output" \
-      whisper-transcriber
-      
-    if [ $? -eq 0 ]; then
-        echo "✓ Processed: $filename"
-    else
-        echo "✗ Failed: $filename"
-    fi
-done
+# Use the legacy single-file processor
+docker run --rm \
+  -v /path/to/recording.wav:/input/audio.wav:ro \
+  -v /path/to/output:/output \
+  --entrypoint python \
+  whisper-transcriber src/main_single_file.py
+```
+
+### Custom Configuration
+
+```bash
+# Run with custom settings
+docker run --rm \
+  -e WHISPER_MODEL_SIZE=base \
+  -e WATCH_INTERVAL=0.5 \
+  -e LOG_LEVEL=DEBUG \
+  -v $(pwd)/input:/input:ro \
+  -v $(pwd)/output:/output \
+  whisper-transcriber
 ```
 
 ## Exit Codes

@@ -50,10 +50,8 @@ Thumbs.db
 .dockerignore
 
 # Project specific
-input/*.wav
-input/*.WAV
-output/*.txt
-test_output/
+input/*
+output/*
 *.log
 
 # Model cache (if running locally)

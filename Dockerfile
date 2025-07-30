@@ -1,6 +1,6 @@
 # Multi-stage Docker build for Whisper transcription service
 # Stage 1: Model download and preparation
-FROM python:3.11-slim AS model-downloader
+FROM python:slim AS model-downloader
 
 # Accept proxy arguments
 ARG http_proxy
@@ -14,11 +14,14 @@ ENV https_proxy=${https_proxy}
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
 
-# Install system dependencies for model downloading
+# Install system dependencies for model downloading and building packages
 RUN apt-get update && apt-get install -y \
     git \
     wget \
     curl \
+    build-essential \
+    cmake \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies for model downloading
@@ -37,7 +40,7 @@ RUN python -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; \
     AutoModelForSeq2SeqLM.from_pretrained('aiautomationlab/german-news-title-gen-mt5', cache_dir='/models/title-generator')"
 
 # Stage 2: Production image
-FROM python:3.11-slim
+FROM python:slim
 
 # Accept proxy arguments
 ARG http_proxy
@@ -51,10 +54,13 @@ ENV https_proxy=${https_proxy}
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
 
-# Install system dependencies
+# Install system dependencies and build tools
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
+    build-essential \
+    cmake \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

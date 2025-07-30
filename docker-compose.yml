@@ -30,10 +30,9 @@ services:
         reservations:
           memory: 4G
           cpus: '2.0'
-    # Restart policy
-    restart: "no"
-    # Remove container after completion
-    remove: true
+    # Restart policy for continuous operation
+    restart: unless-stopped
+    # Keep container running (remove the 'remove: true' for continuous service)
     # Network mode
     network_mode: none
     
